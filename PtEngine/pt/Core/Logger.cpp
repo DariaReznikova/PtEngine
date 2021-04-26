@@ -84,6 +84,25 @@ bool Logger::checkAssert(bool expr, std::string_view message, const char *file, 
     return true;
 }
 
+bool Logger::checkFatalError(bool expr, std::string_view message, const char* file, const char* funcName, int line) {
+    if (!expr) {
+        float elapsedTime = mGetTime() - mStartTime;
+        uint32_t threadId = *reinterpret_cast<uint32_t*>(&std::this_thread::get_id());
+        std::string text = fmt::format(
+            "\n######################################\n{:.3} ({}) [FATAL ERROR]:\nFILE: {}\nFUNCTION: {}\nLINE: {}\nExpression: {}\n######################################\n\n",
+            elapsedTime, threadId, file, funcName, line, message
+        );
+
+        std::unique_lock lock(mWriteMutex);
+        if (mLogFile) {
+            fmt::print(mLogFile.get(), text);
+        }
+        fmt::print(text);
+        return false;
+    }
+    return true;
+}
+
 float Logger::mGetTime() const {
     _timeb timeb;
     if (_ftime_s(&timeb) == 0) {
