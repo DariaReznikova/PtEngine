@@ -1,10 +1,11 @@
 #include "pt/Core/Logger.hpp"
+#include "pt/Core/Config.hpp"
 #include <thread>
 #include <chrono>
 
 int main() {
     pt::Logger::get().initialize();
-
+    pt::ParsConfig config;
     auto t1 = std::thread([]() {
         for (int i = 0; i < 3; i++) {
             PT_LOG_ERROR("i = {}", i);
