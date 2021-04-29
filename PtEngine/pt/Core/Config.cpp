@@ -1,6 +1,7 @@
 #include "Logger.hpp"
 #include "Config.hpp"
 #include "fmt/format.h"
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <queue>
@@ -188,21 +189,61 @@ ParsConfig::Token& ParsConfig::get_token(std::queue<ParsConfig::Token>& tokens) 
 	return temp;
 }
 
+std::string ParsConfig::search_config_in_dir(std::string& nameOfDir){
+    std::string extentionPt = ".pt";
+    int countOfPr = 0;
+    std::string nameOfFile;
+     for (auto& fileSearch : std::filesystem::recursive_directory_iterator(nameOfDir)) {
+        if (!fileSearch.is_regular_file()){
+            continue; 
+        }
+        std::string extentionFile = fileSearch.path().extension().generic_string();
+        nameOfFile = fileSearch.path().string();
+        if (extentionPt == extentionFile){
+            ++countOfPr;
+            return nameOfFile;
+        }
+        else{
+            continue;
+        }
+    }
+    if (countOfPr == 0){
+        PT_LOG_ERROR(" Can't find configuration file in directory {}", nameOfDir);
+         nameOfFile.clear();
+         return nameOfFile;
+    }
+}
+
 void ParsConfig::connect_config() {
-	
-	char pathToFile[] = "config.txt";  // depends on the name of the file - need add to search log file in filesystem by extension
-	FILE* file;
-	if (fopen_s(&file, pathToFile, "r") != 0) {
-		PT_LOG_ERROR(" Can't open configuration file");                     
-		m_input.clear();
+    std::string dirPtDemo = "PtDemo";
+    std::string dirPtEngine = "PtEngine\\pt";
+    std::string nameOfFile;
+    /*if (!search_config_in_dir(dirPtDemo).empty()){
+        nameOfFile =  search_config_in_dir(dirPtDemo);
+    }*/
+    if(!search_config_in_dir(dirPtEngine).empty()){
+        nameOfFile =  search_config_in_dir(dirPtEngine);
+    }
+    else{
+        nameOfFile.clear();
+    }
+    if (!nameOfFile.empty()){
+    FILE* file;
+    if (fopen_s(&file, nameOfFile.c_str(), "r") != 0) {
+        PT_LOG_ERROR(" Can't open configuration file");                     
+        m_input.clear();
         exit(0);
-		
-	}
-	else {
-		while (!feof(file)) {
-			m_input += fgetc(file);
-		}
-	}
+    }
+    else {
+        while (!feof(file)) {
+        m_input += fgetc(file);
+        }
+    }
 	fclose(file);	
+    }
+    else{
+        PT_LOG_ERROR(" Can't open configuration file");                     
+        exit(0);
+    }
 }
 }

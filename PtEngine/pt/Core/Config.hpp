@@ -20,10 +20,10 @@ private:
 	Token& get_token(std::queue<Token>& tokens);
 	void connect_config();
 	std::queue<Token>& lexer(char* input);
-	
+	std::string search_config_in_dir(std::string& nameOfDir);
 public:
 	ParsConfig();
-    
+
 };
 
 }
