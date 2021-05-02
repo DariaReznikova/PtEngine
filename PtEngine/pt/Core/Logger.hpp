@@ -6,7 +6,6 @@
 #include <memory>
 #include <cstdio>
 
-//#define PT_ASSERT(expr) assert(#expr && pt::Logger::get().checkAssert(expr, #expr, __FILE__, __FUNCSIG__, __LINE__))
 #define PT_ASSERT(expr) { assert(expr && #expr); pt::Logger::get().write(pt::LogLevel::AssertionFailed, #expr, __FILE__, __FUNCSIG__, __LINE__); }   
 #define PT_LOG_FATAL(fmtmsg, __FILE__, __FUNCSIG__, __LINE__) do { pt::Logger::get().write(pt::LogLevel::FatalError, fmtmsg, __FILE__, __FUNCSIG__, __LINE__); \
 exit(-1); } while(false);
@@ -17,31 +16,30 @@ exit(-1); } while(false);
 
 namespace pt {
 
-	enum class LogLevel {
-		FatalError,
-		Error,
-		Warning,
-		Info,
-		Trace,
-		AssertionFailed
-	};
+    enum class LogLevel {
+        FatalError,
+        Error,
+        Warning,
+        Info,
+        Trace,
+        AssertionFailed
+    };
 
-	class Logger {
-		PT_SINGLETON(Logger)
-	public:
-		Logger();
+    class Logger {
+        PT_SINGLETON(Logger)
+    public:
+        Logger();
 
-		bool initialize();
-		void write(LogLevel level, std::string_view message);
-		void write(LogLevel level, std::string_view message, const char* file, const char* funcName, int line);
-		// bool checkAssert(bool expr, std::string_view message, const char *file, const char *funcName, int line);
+        bool initialize();
+        void write(LogLevel level, std::string_view message);
+        void write(LogLevel level, std::string_view message, const char* file, const char* funcName, int line);
 
-	private:
-		float mGetTime() const;
+    private:
+        float mGetTime() const;
 
-		std::unique_ptr<FILE, decltype(&fclose)> mLogFile;
-		std::mutex mWriteMutex;
-		float mStartTime;
-	};
+        std::unique_ptr<FILE, decltype(&fclose)> mLogFile;
+        std::mutex mWriteMutex;
+        float mStartTime;
+    };
 
 }
