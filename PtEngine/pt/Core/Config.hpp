@@ -5,25 +5,25 @@ namespace pt {
 enum class TYPETOKEN { TYPE, IDENTIFIER, LOOKAHEAD, VALUE, VALUE_STRING, ESCAPE, UNKNOWN };
 
 class ParsConfig {
-
+public:
+	ParsConfig();
 private:
-	std::string m_input;
 	struct Token {
 		std::string lexem;
 		TYPETOKEN type;
 	};
-	struct bracket {
+	struct Bracket {
 		char value;
 		int line;
 	};
-	int check_brackets(char* input);
+	std::string m_input;
+	Bracket m_optErrorInfo;
+
+	bool check_brackets();
 	Token& get_token(std::queue<Token>& tokens);
 	void connect_config();
 	std::queue<Token>& lexer(char* input);
-	
-public:
-	ParsConfig();
-    
+
 };
 
 }

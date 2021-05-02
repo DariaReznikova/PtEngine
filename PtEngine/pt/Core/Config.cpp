@@ -15,71 +15,78 @@ ParsConfig::ParsConfig() { // if configuration file one
 	}
 }
 
-int ParsConfig::check_brackets(char* input) {
-	
-	int line_error = 1;
-	char offset = 0;
-	int countOfStringBracket = 0;
-	bool new_line = true;
+bool ParsConfig::check_brackets() {
+	int lineWithError = 1;
+	std::int8_t offset = 0;
+	int lineBracketsCount = 0;
+	bool isNewLine = true;
 
-	std::stack<bracket> stack;
-	stack.push({ 'v', -1 });                              // first accessing in expression [0]
-
-	while ((*input) != '\0'){
-
-		if (new_line) {
-			countOfStringBracket = 0;
-			int offset_line = 0;
-			while ((*input) != '\n' && (*input) != '\n\r' && (*input) != '\0') {       // check count ["] in line
-				if ((*input) == '"') {
-					++countOfStringBracket;
+	std::stack<Bracket> stack;
+	Bracket temp;
+	stack.push({ temp.value = 'v', temp.line = -1 }); // first accessing in expression [0]
+	auto inputIterator = m_input.begin();
+	while (inputIterator != (m_input.end() - 1)) {
+		if (isNewLine) {
+			lineBracketsCount = 0;
+			int lineOffset = 0;
+			auto checkEscIterator = (m_input.begin() + 1);
+			while ((*inputIterator) != '\n' && (*inputIterator) != '\n\r' && inputIterator != (m_input.end() - 1)) { // check count ["] in line ####### add check \" #######
+				if ((*inputIterator) == '"' && (*checkEscIterator) != '\\') {
+					++lineBracketsCount;
 				}
-				++input;
-				++offset_line;
+				++inputIterator;
+				++checkEscIterator;
+				++lineOffset;
 			}
-			input -= offset_line;
-			new_line = false;
+			inputIterator -= lineOffset;
+			checkEscIterator -= lineOffset;
+			isNewLine = false;
 
-			if ((countOfStringBracket & 1)) {
-				input -= offset;
-				return line_error;
+			if (lineBracketsCount & 1) {
+				m_optErrorInfo.line = lineWithError;
+				m_optErrorInfo.value = '"';
+				return false;
 			}
 		}
-		if ((*input) == '\n' || (*input) == '\n\r') {
-			++line_error;
-			new_line = true;
+		if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r') {
+			++lineWithError;
+			isNewLine = true;
 		}
 
-		if ((*input) == '{' || (*input) == '[') {
-			stack.push({ (*input), line_error });
+		if ((*inputIterator) == '{' || (*inputIterator) == '[') {
+			stack.push({ temp.value = (*inputIterator), temp.line = lineWithError });
 		}
-		else if ( ((*input) == '}' && stack.top().value == '{') // [0]
-			||((*input) == ']' && stack.top().value == '[')) {
+		else if ( ((*inputIterator) == '}' && stack.top().value == '{') // [0]
+			||((*inputIterator) == ']' && stack.top().value == '[')) {
 			stack.pop();
 		}
-		else if ((*input) == '{' || (*input) == '[' 
-			||(*input) == '}' || (*input) == ']' ) {
-			input -= offset;
-			return line_error;
+		else if ((*inputIterator) == '{' || (*inputIterator) == '[' 
+			||(*inputIterator) == '}' || (*inputIterator) == ']' ) {
+			m_optErrorInfo.line = lineWithError;
+			m_optErrorInfo.value = (*inputIterator);
+			return false;
 		}
-		++input;
+		++inputIterator;
 		++offset;
 	}
 
 	if (stack.size() == 1) {
-		input -= offset;
-		return 0;
+		m_optErrorInfo.line = -1;
+		m_optErrorInfo.value = 'v';
+		return true;
 	}
 	else {
-		input -= offset;
-		return stack.top().line;
+		m_optErrorInfo.line = stack.top().line;
+		m_optErrorInfo.value = stack.top().value;
+		return false;
 	}
 }
 
 std::queue<ParsConfig::Token>& ParsConfig::lexer(char* input){
 
 	std::queue<ParsConfig::Token> tokens;
-	if (check_brackets(input) == 0) {
+	bool bracketResult = check_brackets();
+	if (bracketResult) {
 		std::string temp;
 		int offset = 0;
 
@@ -172,9 +179,7 @@ std::queue<ParsConfig::Token>& ParsConfig::lexer(char* input){
 		return tokens;
 	}
 	else {
-		int error_place = check_brackets(input);
-		PT_LOG_WARNING(" Incorrect bracket configuration file in line {}", error_place);
-		std::cerr << error_place;
+		PT_LOG_WARNING("Incorrect symbol {} configuration file in line {}", m_optErrorInfo.value, m_optErrorInfo.line);
 		while (!tokens.empty()) {
 			tokens.pop();
 		}
