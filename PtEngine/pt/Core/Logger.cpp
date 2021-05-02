@@ -45,19 +45,34 @@ bool Logger::initialize() {
     return true;
 }
 
-void Logger::write(LogLevel level, std::string_view message) {
-    const char *levelStr = "";
-    switch (level) {
-        case LogLevel::Error  : levelStr = "ERROR  "; break;
-        case LogLevel::Warning: levelStr = "WARNING"; break;
-        case LogLevel::Info   : levelStr = "INFO   "; break;
-        case LogLevel::Trace  : levelStr = "TRACE  "; break;
-    }
-
+void Logger::write(LogLevel level, std::string_view message, const char *file, const char *funcName, int line) {
     float elapsedTime = mGetTime() - mStartTime;
     uint32_t threadId = *reinterpret_cast<uint32_t*>(&std::this_thread::get_id());
-    std::string text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
     
+    std::string text;
+    const char *levelStr = "";
+
+    switch (level) {
+        case LogLevel::Error          : levelStr = "ERROR  "; break;
+         text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
+        case LogLevel::Warning        : levelStr = "WARNING"; break;
+         text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
+        case LogLevel::Info           : levelStr = "INFO   "; break;
+         text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
+        case LogLevel::Trace          : levelStr = "TRACE  "; break; 
+         text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message); 
+        case LogLevel::FatalError     :
+        text = fmt::format(
+            "\n######################################\n{:.3} ({}) [FATAL ERROR]:\nFILE: {}\nFUNCTION: {}\nLINE: {}\nREASON: {}\n######################################\n\n",
+            elapsedTime, threadId, file, funcName, line, message
+        );
+        case LogLevel::AssertionFailed:      
+        std::string text = fmt::format(
+            "\n######################################\n{:.3} ({}) [ASSERTION FAILED]:\nFILE: {}\nFUNCTION: {}\nLINE: {}\nExpression: {}\n######################################\n\n",
+            elapsedTime, threadId, file, funcName, line, message
+        );                                  
+    }
+
     std::unique_lock lock(mWriteMutex);
     if (mLogFile) {
         fmt::print(mLogFile.get(), text);
@@ -65,7 +80,29 @@ void Logger::write(LogLevel level, std::string_view message) {
     fmt::print(text);
 }
 
-bool Logger::checkAssert(bool expr, std::string_view message, const char *file, const char *funcName, int line) {
+void Logger::write(LogLevel level, std::string_view message) {
+    float elapsedTime = mGetTime() - mStartTime;
+    uint32_t threadId = *reinterpret_cast<uint32_t*>(&std::this_thread::get_id());
+    
+    std::string text;
+    const char *levelStr = "";
+
+    switch (level) {
+        case LogLevel::Error  : levelStr = "ERROR  "; break;
+        case LogLevel::Warning: levelStr = "WARNING"; break;
+        case LogLevel::Info   : levelStr = "INFO   "; break;
+        case LogLevel::Trace  : levelStr = "TRACE  "; break;                                          
+    }
+    text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
+
+    std::unique_lock lock(mWriteMutex);
+    if (mLogFile) {
+        fmt::print(mLogFile.get(), text);
+    }
+    fmt::print(text);
+}
+
+/*bool Logger::checkAssert(bool expr, std::string_view message, const char *file, const char *funcName, int line) {
     if (!expr) {
         float elapsedTime = mGetTime() - mStartTime;
         uint32_t threadId = *reinterpret_cast<uint32_t*>(&std::this_thread::get_id());
@@ -82,26 +119,7 @@ bool Logger::checkAssert(bool expr, std::string_view message, const char *file, 
         return false;
     }
     return true;
-}
-
-bool Logger::checkFatalError(bool expr, std::string_view message, const char* file, const char* funcName, int line) {
-    if (!expr) {
-        float elapsedTime = mGetTime() - mStartTime;
-        uint32_t threadId = *reinterpret_cast<uint32_t*>(&std::this_thread::get_id());
-        std::string text = fmt::format(
-            "\n######################################\n{:.3} ({}) [FATAL ERROR]:\nFILE: {}\nFUNCTION: {}\nLINE: {}\nExpression: {}\n######################################\n\n",
-            elapsedTime, threadId, file, funcName, line, message
-        );
-
-        std::unique_lock lock(mWriteMutex);
-        if (mLogFile) {
-            fmt::print(mLogFile.get(), text);
-        }
-        fmt::print(text);
-        return false;
-    }
-    return true;
-}
+}*/
 
 float Logger::mGetTime() const {
     _timeb timeb;
