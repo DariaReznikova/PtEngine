@@ -1,6 +1,6 @@
 #include "Logger.hpp"
 #include "Config.hpp"
-#include "fmt/format.h"
+#include <string>
 #include <iostream>
 #include <string>
 #include <queue>
@@ -15,9 +15,9 @@ ParsConfig::ParsConfig() { // if configuration file one
 	}
 }
 
-bool ParsConfig::check_brackets() {
+bool ParsConfig::m_checkBracket(Bracket &optErrorInfo) {
 	int lineWithError = 1;
-	std::int8_t offset = 0;
+	size_t offset = 0;
 	int lineBracketsCount = 0;
 	bool isNewLine = true;
 
@@ -30,7 +30,7 @@ bool ParsConfig::check_brackets() {
 			lineBracketsCount = 0;
 			int lineOffset = 0;
 			auto checkEscIterator = (m_input.begin() + 1);
-			while ((*inputIterator) != '\n' && (*inputIterator) != '\n\r' && inputIterator != (m_input.end() - 1)) { // check count ["] in line ####### add check \" #######
+			while ((*inputIterator) != '\n' && (*inputIterator) != '\n\r' && inputIterator != (m_input.end() - 1)) { // check count ["] in line 
 				if ((*inputIterator) == '"' && (*checkEscIterator) != '\\') {
 					++lineBracketsCount;
 				}
@@ -43,8 +43,8 @@ bool ParsConfig::check_brackets() {
 			isNewLine = false;
 
 			if (lineBracketsCount & 1) {
-				m_optErrorInfo.line = lineWithError;
-				m_optErrorInfo.value = '"';
+				optErrorInfo.line = lineWithError;
+				optErrorInfo.value = '"';
 				return false;
 			}
 		}
@@ -62,8 +62,8 @@ bool ParsConfig::check_brackets() {
 		}
 		else if ((*inputIterator) == '{' || (*inputIterator) == '[' 
 			||(*inputIterator) == '}' || (*inputIterator) == ']' ) {
-			m_optErrorInfo.line = lineWithError;
-			m_optErrorInfo.value = (*inputIterator);
+			optErrorInfo.line = lineWithError;
+			optErrorInfo.value = (*inputIterator);
 			return false;
 		}
 		++inputIterator;
@@ -71,13 +71,13 @@ bool ParsConfig::check_brackets() {
 	}
 
 	if (stack.size() == 1) {
-		m_optErrorInfo.line = -1;
-		m_optErrorInfo.value = 'v';
+		optErrorInfo.line = -1;
+		optErrorInfo.value = 'v';
 		return true;
 	}
 	else {
-		m_optErrorInfo.line = stack.top().line;
-		m_optErrorInfo.value = stack.top().value;
+		optErrorInfo.line = stack.top().line;
+		optErrorInfo.value = stack.top().value;
 		return false;
 	}
 }
@@ -85,8 +85,16 @@ bool ParsConfig::check_brackets() {
 std::queue<ParsConfig::Token>& ParsConfig::lexer(char* input){
 
 	std::queue<ParsConfig::Token> tokens;
-	bool bracketResult = check_brackets();
-	if (bracketResult) {
+	Bracket optErrorInfo;
+	bool bracketResult = m_checkBracket(optErrorInfo);
+	if (!bracketResult){
+		PT_LOG_WARNING("Incorrect symbol {} configuration file in line {}", optErrorInfo.value, optErrorInfo.line);
+		while (!tokens.empty()) {
+			tokens.pop();
+		}
+		return tokens;
+	}
+	else {
 		std::string temp;
 		int offset = 0;
 
@@ -178,30 +186,18 @@ std::queue<ParsConfig::Token>& ParsConfig::lexer(char* input){
 		}
 		return tokens;
 	}
-	else {
-		PT_LOG_WARNING("Incorrect symbol {} configuration file in line {}", m_optErrorInfo.value, m_optErrorInfo.line);
-		while (!tokens.empty()) {
-			tokens.pop();
-		}
-		return tokens;
-	}
 }
-
 ParsConfig::Token& ParsConfig::get_token(std::queue<ParsConfig::Token>& tokens) {
 	static Token temp = tokens.back();
 	tokens.pop();
 	return temp;
 }
-
 void ParsConfig::connect_config() {
 	
-	char pathToFile[] = "config.txt";  // depends on the name of the file - need add to search log file in filesystem by extension
+	std::string pathToFile = "C:\\Users\\dafra\\source\\repos\\VisualStudioCode\\push\\PtEngine\\PtEngine\\pt\\Core\\config.ptc";  // depends on the name of the file - need add to search log file in filesystem by extension
 	FILE* file;
-	if (fopen_s(&file, pathToFile, "r") != 0) {
-		PT_LOG_ERROR(" Can't open configuration file");                     
-		m_input.clear();
-        exit(0);
-		
+	if (fopen_s(&file, pathToFile.c_str(), "r") != 0) {
+		PT_LOG_FATAL(" Can't open configuration file '{}'", pathToFile);                     
 	}
 	else {
 		while (!feof(file)) {

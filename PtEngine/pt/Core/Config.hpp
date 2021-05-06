@@ -1,7 +1,9 @@
 #pragma once
 #include <string>
 #include <queue>
+
 namespace pt {
+
 enum class TYPETOKEN { TYPE, IDENTIFIER, LOOKAHEAD, VALUE, VALUE_STRING, ESCAPE, UNKNOWN };
 
 class ParsConfig {
@@ -17,13 +19,11 @@ private:
 		int line;
 	};
 	std::string m_input;
-	Bracket m_optErrorInfo;
 
-	bool check_brackets();
+	bool m_checkBracket(Bracket &optErrorInfo);
 	Token& get_token(std::queue<Token>& tokens);
 	void connect_config();
 	std::queue<Token>& lexer(char* input);
 
 };
-
 }
