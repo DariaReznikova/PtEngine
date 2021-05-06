@@ -45,7 +45,7 @@ namespace pt {
         return true;
     }
 
-    void Logger::write(LogLevel level, std::string_view message, const char* file, const char* funcName, int line) {
+    void Logger::write(LogLevel level, const char* file, const char* funcName, int line, std::string_view message) {
         float elapsedTime = mGetTime() - mStartTime;
         uint32_t threadId = *reinterpret_cast<uint32_t*>(&std::this_thread::get_id());
 
@@ -53,24 +53,30 @@ namespace pt {
         const char* levelStr = "";
 
         switch (level) {
-        case LogLevel::Error: levelStr = "ERROR  "; break;
+        case LogLevel::Error: levelStr = "ERROR  "; 
             text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
-        case LogLevel::Warning: levelStr = "WARNING"; break;
+            break;
+        case LogLevel::Warning: levelStr = "WARNING"; 
             text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
-        case LogLevel::Info: levelStr = "INFO   "; break;
+            break;
+        case LogLevel::Info: levelStr = "INFO   "; 
             text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
-        case LogLevel::Trace: levelStr = "TRACE  "; break;
+            break;
+        case LogLevel::Trace: levelStr = "TRACE  "; 
             text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
+            break;
         case LogLevel::FatalError:
             text = fmt::format(
                 "\n######################################\n{:.3} ({}) [FATAL ERROR]:\nFILE: {}\nFUNCTION: {}\nLINE: {}\nREASON: {}\n######################################\n\n",
                 elapsedTime, threadId, file, funcName, line, message
             );
+            break;
         case LogLevel::AssertionFailed:
             std::string text = fmt::format(
                 "\n######################################\n{:.3} ({}) [ASSERTION FAILED]:\nFILE: {}\nFUNCTION: {}\nLINE: {}\nExpression: {}\n######################################\n\n",
                 elapsedTime, threadId, file, funcName, line, message
             );
+            break;
         }
 
         std::unique_lock lock(mWriteMutex);
@@ -79,29 +85,7 @@ namespace pt {
         }
         fmt::print(text);
     }
-
-    void Logger::write(LogLevel level, std::string_view message) {
-        float elapsedTime = mGetTime() - mStartTime;
-        uint32_t threadId = *reinterpret_cast<uint32_t*>(&std::this_thread::get_id());
-
-        std::string text;
-        const char* levelStr = "";
-
-        switch (level) {
-        case LogLevel::Error: levelStr = "ERROR  "; break;
-        case LogLevel::Warning: levelStr = "WARNING"; break;
-        case LogLevel::Info: levelStr = "INFO   "; break;
-        case LogLevel::Trace: levelStr = "TRACE  "; break;
-        }
-        text = fmt::format("{:.3} ({}) [{}]: {}\n", elapsedTime, threadId, levelStr, message);
-
-        std::unique_lock lock(mWriteMutex);
-        if (mLogFile) {
-            fmt::print(mLogFile.get(), text);
-        }
-        fmt::print(text);
-    }
-
+    
     float Logger::mGetTime() const {
         _timeb timeb;
         if (_ftime_s(&timeb) == 0) {

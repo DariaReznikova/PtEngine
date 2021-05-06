@@ -6,13 +6,12 @@
 #include <memory>
 #include <cstdio>
 
-#define PT_ASSERT(expr) { assert(expr && #expr); pt::Logger::get().write(pt::LogLevel::AssertionFailed, #expr, __FILE__, __FUNCSIG__, __LINE__); }   
-#define PT_LOG_FATAL(fmtmsg, __FILE__, __FUNCSIG__, __LINE__) do { pt::Logger::get().write(pt::LogLevel::FatalError, fmtmsg, __FILE__, __FUNCSIG__, __LINE__); \
-exit(-1); } while(false);
-#define PT_LOG_ERROR(fmtmsg, ...) pt::Logger::get().write(pt::LogLevel::Error, fmt::format(fmtmsg, __VA_ARGS__))
-#define PT_LOG_WARNING(fmtmsg, ...) pt::Logger::get().write(pt::LogLevel::Warning, fmt::format(fmtmsg, __VA_ARGS__))
-#define PT_LOG_INFO(fmtmsg, ...) pt::Logger::get().write(pt::LogLevel::Info, fmt::format(fmtmsg, __VA_ARGS__))
-#define PT_LOG_TRACE(fmtmsg, ...) pt::Logger::get().write(pt::LogLevel::Trace, fmt::format(fmtmsg, __VA_ARGS__))
+#define PT_ASSERT(expr) do { if (!(expr)) { pt::Logger::get().write(pt::LogLevel::AssertionFailed, __FILE__, __FUNCSIG__, __LINE__,  #expr); assert(expr);} }  while(false);
+#define PT_LOG_FATAL(fmtmsg, ...) do { pt::Logger::get().write(pt::LogLevel::FatalError, __FILE__, __FUNCSIG__, __LINE__, fmt::format(fmtmsg, __VA_ARGS__)); exit(-1); } while(false);
+#define PT_LOG_ERROR(fmtmsg, ...) pt::Logger::get().write(pt::LogLevel::Error, __FILE__, __FUNCSIG__, __LINE__, fmt::format(fmtmsg, __VA_ARGS__))
+#define PT_LOG_WARNING(fmtmsg, ...) pt::Logger::get().write(pt::LogLevel::Warning, __FILE__, __FUNCSIG__, __LINE__, fmt::format(fmtmsg, __VA_ARGS__))
+#define PT_LOG_INFO(fmtmsg, ...) pt::Logger::get().write(pt::LogLevel::Info, __FILE__, __FUNCSIG__, __LINE__, fmt::format(fmtmsg, __VA_ARGS__))
+#define PT_LOG_TRACE(fmtmsg, ...) pt::Logger::get().write(pt::LogLevel::Trace, __FILE__, __FUNCSIG__, __LINE__, fmt::format(fmtmsg, __VA_ARGS__))
 
 namespace pt {
 
@@ -31,8 +30,7 @@ namespace pt {
         Logger();
 
         bool initialize();
-        void write(LogLevel level, std::string_view message);
-        void write(LogLevel level, std::string_view message, const char* file, const char* funcName, int line);
+        void write(LogLevel level, const char* file, const char* funcName, int line, std::string_view message);
 
     private:
         float mGetTime() const;
