@@ -1,17 +1,16 @@
 #include "Logger.hpp"
 #include "Config.hpp"
 #include <string>
-#include <iostream>
 #include <string>
-#include <queue>
+#include <vector>
 #include <stack>
 
 namespace pt {
 
-ConfigParser::ConfigParser(std::string pathToFile) { 
+ConfigParser::ConfigParser(std::string pathToFile) : m_pathToFile { pathToFile }{ 
     FILE* file;
-    if (fopen_s(&file, pathToFile.c_str(), "r") != 0) {
-        PT_LOG_FATAL("Can't open configuration file '{}'", pathToFile);                     
+    if (fopen_s(&file, m_pathToFile.c_str(), "r") != 0) {
+        PT_LOG_FATAL("Can't open configuration file '{}'", m_pathToFile);                     
     }
     else {
         while (!feof(file)) {
@@ -20,7 +19,8 @@ ConfigParser::ConfigParser(std::string pathToFile) {
     }
     fclose(file);
     if (!m_input.empty()) {
-        lexer(const_cast<char*>(m_input.c_str()));
+        m_parseLexemes();
+		m_tokens;
 	}
 }
 
@@ -90,114 +90,104 @@ bool ConfigParser::m_checkBracket(Bracket &optErrorInfo) {
     }
 }
 
-std::queue<ConfigParser::Token>& ConfigParser::lexer(char* input){
+void ConfigParser::m_parseLexemes() {
+    Bracket optErrorInfo;
+    bool bracketResult = m_checkBracket(optErrorInfo);
+        if (!bracketResult) {
+            PT_LOG_ERROR("Incorrect symbol '{}' configuration file '{}' in line '{}'", optErrorInfo.value, m_pathToFile, optErrorInfo.line);
+            m_tokens.clear();
+        }
+        else {
+            std::string temp;
+            int offset = 0;
+            Token tempToken;
+            auto inputIterator = m_input.begin();
+            while (inputIterator != (m_input.end() - 1)) {
+                while ((*inputIterator) == ' ' || (*inputIterator) == '\t' || (*inputIterator) == '\r' || (*inputIterator) == '\v' || (*inputIterator) == '\f'
+                    && inputIterator != (m_input.end() - 1)) {
+                    ++inputIterator;
+                }
+                if (isalpha(*inputIterator)) {
+                    offset = 0;
+                    while (isalpha(*inputIterator) || isdigit(*inputIterator)) {
+                        temp += (*inputIterator);
+                        ++inputIterator;
+                        ++offset;
+                    }
+                    if (temp == "bool" || temp == "string" || temp == "table"
+                        || temp == "i8" || temp == "i16" || temp == "i32" || temp == "i64"
+                        || temp == "u8" || temp == "u16" || temp == "u32" || temp == "u64"
+                        || temp == "f32" || temp == "f64") {
+                        m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::TYPE });
+                        temp.clear();
+                        continue;
+                    }
+                    else {
+                        inputIterator -= offset;
+                    }
+                    temp.clear();
+                }
+                else if ((*inputIterator) == '"') {
+                    ++inputIterator;
+                    while ((*inputIterator) != '"') {
+                        if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r' || (*inputIterator) == '\'') {
+                            m_tokens.push_back({ tempToken.lexem = std::to_string(*inputIterator), tempToken.type = TokenType::ESCAPE });
+                        }
+                        else {
+                            temp += (*inputIterator);
+                            ++inputIterator;
+                        }
+                    }
+                    ++inputIterator;
+                    m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::VALUE_STRING });
+                    temp.clear();
+                }
 
-	std::queue<Token> tokens;
-	Bracket optErrorInfo;
-	bool bracketResult = m_checkBracket(optErrorInfo);
-	if (!bracketResult){
-		PT_LOG_WARNING("Incorrect symbol {} configuration file in line {}", optErrorInfo.value, optErrorInfo.line);
-		while (!tokens.empty()) {
-			tokens.pop();
-		}
-		return tokens;
-	}
-	else {
-		std::string temp;
-		int offset = 0;
+                if (isalpha(*inputIterator)) {
+                    while (isalpha(*inputIterator) || isdigit(*inputIterator) || (*inputIterator) == '_') {
+                        temp += (*inputIterator);
+                        ++inputIterator;
+                    }
+                    if (temp == "false" || temp == "true") {
+                        m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::VALUE });
+                        temp.clear();
+                        continue;
+                    }
+                    else {
+                        m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::IDENTIFIER });
+                        temp.clear();
+                        continue;
+                    }
+                }
 
-		while ((*input) != '\0') {
+                else if (isdigit(*inputIterator) || (*inputIterator) == '-') {
+                    while (isdigit(*inputIterator) || (*inputIterator) == '.') {
+                        temp += (*inputIterator);
+                        ++inputIterator;
+                    }
+                    m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::VALUE });
+                    temp.clear();
+                }
+
+                else if (strchr(":=,[]{}", (*inputIterator)) || (*inputIterator) == '\n' || (*inputIterator) == '\n\r') {
+                    m_tokens.push_back({ tempToken.lexem = std::to_string(*inputIterator), tempToken.type = TokenType::LOOKAHEAD });
+                    ++inputIterator;
+                }
+
+                else {
+                    temp += (*inputIterator);
+                    m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::UNKNOWN });
+                    PT_LOG_ERROR("Unknown character '{}' found in the configuration file", temp);
+                    m_tokens.clear();
+                    return;
+                }
+            }
+        }
+    }
 			
-			while ((*input) == ' ' && (*input) != '\0') {
-				++input;
-			}
-			
-			if (isalpha(*input)) {
-				offset = 0;
-				while (isalpha(*input) || isdigit(*input)) {
-					temp += (*input);
-					++input;
-					++offset;
-				}
-				if (temp == "bool" || temp == "string" || temp == "table"
-					|| temp == "i8" || temp == "i16" || temp == "i32" || temp == "i64"
-					|| temp == "u8" || temp == "u16" || temp == "u32" || temp == "u64"
-					|| temp == "f32" || temp == "f64") {
-					tokens.push({ temp, TYPETOKEN::TYPE });
-					temp.clear();
-					continue;
-				}
-				else {
-					input -= offset;
-				}
-				temp.clear();
-			}
-
-			if ((*input) == '"') {
-				++input;
-				while ((*input) != '"') {
-					if ((*input) == '\n' || (*input) == '\n\r' || (*input) == '\'') {
-						tokens.push({ std::to_string((*input)), TYPETOKEN::ESCAPE });
-					}
-					else {
-						temp += (*input);
-						++input;
-					}
-				}
-				++input;
-				tokens.push({ temp, TYPETOKEN::VALUE_STRING });
-				temp.clear();
-				continue;
-			}
-
-			if (isalpha(*input)) {
-				while (isalpha(*input) || isdigit(*input) || (*input) == '_') {
-					temp += (*input);
-					++input;
-				}
-				if (temp == "false" || temp == "true") {
-					tokens.push({ temp, TYPETOKEN::VALUE });
-					temp.clear();
-					continue;
-				}
-				else {
-					tokens.push({ temp, TYPETOKEN::IDENTIFIER });
-					temp.clear();
-					continue;
-				}
-			}
-
-			if (isdigit(*input) || (*input) == '-') {
-				while (isdigit(*input) || (*input) == '.' ) {
-					temp += (*input);
-					++input;
-				}
-				tokens.push({ temp, TYPETOKEN::VALUE });
-				temp.clear();
-				continue;
-			}
-
-			if (strchr(":=,[]{}", (*input)) || (*input) == '\n' || (*input) == '\n\r') {
-				tokens.push({ std::to_string((*input)), TYPETOKEN::LOOKAHEAD });
-				++input;
-				continue;
-			}
-
-			else {
-				temp += (*input);
-				tokens.push({ temp, TYPETOKEN::UNKNOWN });
-				PT_LOG_WARNING(" Unknown character {} found in the configuration file", temp);
-				temp.clear();
-				++input;
-				continue;
-			}
-		}
-		return tokens;
-	}
-}
-ConfigParser::Token& ConfigParser::get_token(std::queue<Token>& tokens) {
+ConfigParser::Token& ConfigParser::get_token(std::vector<Token>& tokens) {
 	static Token temp = tokens.back();
-	tokens.pop();
+	//tokens.pop();
 	return temp;
 }
 
