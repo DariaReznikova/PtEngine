@@ -161,6 +161,10 @@ void ConfigParser::m_parseLexemes() {
                 }
 
                 else if (isdigit(*inputIterator) || (*inputIterator) == '-') {
+					if ((*inputIterator) == '-') {
+                        temp += (*inputIterator);
+                        ++inputIterator;
+                    }
                     while (isdigit(*inputIterator) || (*inputIterator) == '.') {
                         temp += (*inputIterator);
                         ++inputIterator;
