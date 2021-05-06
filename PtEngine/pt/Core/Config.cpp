@@ -8,83 +8,91 @@
 
 namespace pt {
 
-ParsConfig::ParsConfig() { // if configuration file one
-	 connect_config();
-	if (!m_input.empty()) {
-		lexer(const_cast<char*>(m_input.c_str()));
+ConfigParser::ConfigParser(std::string pathToFile) { 
+    FILE* file;
+    if (fopen_s(&file, pathToFile.c_str(), "r") != 0) {
+        PT_LOG_FATAL("Can't open configuration file '{}'", pathToFile);                     
+    }
+    else {
+        while (!feof(file)) {
+            m_input += fgetc(file);
+        }
+    }
+    fclose(file);
+    if (!m_input.empty()) {
+        lexer(const_cast<char*>(m_input.c_str()));
 	}
 }
 
-bool ParsConfig::m_checkBracket(Bracket &optErrorInfo) {
-	int lineWithError = 1;
-	size_t offset = 0;
-	int lineBracketsCount = 0;
-	bool isNewLine = true;
+bool ConfigParser::m_checkBracket(Bracket &optErrorInfo) {
+    int lineWithError = 1;
+    size_t offset = 0;
+    int lineBracketsCount = 0;
+    bool isNewLine = true;
 
-	std::stack<Bracket> stack;
-	Bracket temp;
-	stack.push({ temp.value = 'v', temp.line = -1 }); // first accessing in expression [0]
-	auto inputIterator = m_input.begin();
-	while (inputIterator != (m_input.end() - 1)) {
-		if (isNewLine) {
-			lineBracketsCount = 0;
-			int lineOffset = 0;
-			auto checkEscIterator = (m_input.begin() + 1);
-			while ((*inputIterator) != '\n' && (*inputIterator) != '\n\r' && inputIterator != (m_input.end() - 1)) { // check count ["] in line 
-				if ((*inputIterator) == '"' && (*checkEscIterator) != '\\') {
-					++lineBracketsCount;
-				}
-				++inputIterator;
-				++checkEscIterator;
-				++lineOffset;
-			}
-			inputIterator -= lineOffset;
-			checkEscIterator -= lineOffset;
-			isNewLine = false;
+    std::stack<Bracket> stack;
+    Bracket temp;
+    stack.push({ temp.value = 'v', temp.line = -1 }); // first accessing in expression [0]
+    auto inputIterator = m_input.begin();
+    while (inputIterator != (m_input.end() - 1)) {
+        if (isNewLine) {
+            lineBracketsCount = 0;
+            int lineOffset = 0;
+            auto checkEscIterator = (m_input.begin() + 1);
+            while ((*inputIterator) != '\n' && (*inputIterator) != '\n\r' && inputIterator != (m_input.end() - 1)) { // check count ["] in line 
+                if ((*inputIterator) == '"' && (*checkEscIterator) != '\\') {
+                    ++lineBracketsCount;
+                }
+                ++inputIterator;
+                ++checkEscIterator;
+                ++lineOffset;
+            }
+            inputIterator -= lineOffset;
+            checkEscIterator -= lineOffset;
+            isNewLine = false;
 
-			if (lineBracketsCount & 1) {
-				optErrorInfo.line = lineWithError;
-				optErrorInfo.value = '"';
-				return false;
-			}
-		}
-		if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r') {
-			++lineWithError;
-			isNewLine = true;
-		}
+            if (lineBracketsCount & 1) {
+                optErrorInfo.line = lineWithError;
+                optErrorInfo.value = '"';
+                return false;
+            }
+        }
+        if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r') {
+            ++lineWithError;
+            isNewLine = true;
+        }
 
-		if ((*inputIterator) == '{' || (*inputIterator) == '[') {
-			stack.push({ temp.value = (*inputIterator), temp.line = lineWithError });
-		}
-		else if ( ((*inputIterator) == '}' && stack.top().value == '{') // [0]
-			||((*inputIterator) == ']' && stack.top().value == '[')) {
-			stack.pop();
-		}
-		else if ((*inputIterator) == '{' || (*inputIterator) == '[' 
-			||(*inputIterator) == '}' || (*inputIterator) == ']' ) {
-			optErrorInfo.line = lineWithError;
-			optErrorInfo.value = (*inputIterator);
-			return false;
-		}
-		++inputIterator;
-		++offset;
-	}
-
-	if (stack.size() == 1) {
-		optErrorInfo.line = -1;
-		optErrorInfo.value = 'v';
-		return true;
-	}
-	else {
-		optErrorInfo.line = stack.top().line;
-		optErrorInfo.value = stack.top().value;
-		return false;
-	}
+        if ((*inputIterator) == '{' || (*inputIterator) == '[') {
+            stack.push({ temp.value = (*inputIterator), temp.line = lineWithError });
+        }
+        else if ( ((*inputIterator) == '}' && stack.top().value == '{') // [0]
+            ||((*inputIterator) == ']' && stack.top().value == '[')) {
+            stack.pop();
+        }
+        else if ((*inputIterator) == '{' || (*inputIterator) == '[' 
+            ||(*inputIterator) == '}' || (*inputIterator) == ']' ) {
+            optErrorInfo.line = lineWithError;
+            optErrorInfo.value = (*inputIterator);
+            return false;
+        }
+        ++inputIterator;
+        ++offset;
+    }
+    if (stack.size() == 1) {
+        optErrorInfo.line = -1;
+        optErrorInfo.value = 'v';
+        return true;
+    }
+    else {
+        optErrorInfo.line = stack.top().line;
+        optErrorInfo.value = stack.top().value;
+        return false;
+    }
 }
 
-std::queue<ParsConfig::Token>& ParsConfig::lexer(char* input){
+std::queue<ConfigParser::Token>& ConfigParser::lexer(char* input){
 
-	std::queue<ParsConfig::Token> tokens;
+	std::queue<Token> tokens;
 	Bracket optErrorInfo;
 	bool bracketResult = m_checkBracket(optErrorInfo);
 	if (!bracketResult){
@@ -187,23 +195,12 @@ std::queue<ParsConfig::Token>& ParsConfig::lexer(char* input){
 		return tokens;
 	}
 }
-ParsConfig::Token& ParsConfig::get_token(std::queue<ParsConfig::Token>& tokens) {
+ConfigParser::Token& ConfigParser::get_token(std::queue<Token>& tokens) {
 	static Token temp = tokens.back();
 	tokens.pop();
 	return temp;
 }
-void ParsConfig::connect_config() {
-	
-	std::string pathToFile = "C:\\Users\\dafra\\source\\repos\\VisualStudioCode\\push\\PtEngine\\PtEngine\\pt\\Core\\config.ptc";  // depends on the name of the file - need add to search log file in filesystem by extension
-	FILE* file;
-	if (fopen_s(&file, pathToFile.c_str(), "r") != 0) {
-		PT_LOG_FATAL(" Can't open configuration file '{}'", pathToFile);                     
-	}
-	else {
-		while (!feof(file)) {
-			m_input += fgetc(file);
-		}
-	}
-	fclose(file);	
+
 }
-}
+
+

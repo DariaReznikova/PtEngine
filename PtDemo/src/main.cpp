@@ -5,7 +5,8 @@
 
 int main() {
     pt::Logger::get().initialize();
-    pt::ParsConfig config;
+    pt::ConfigParser config("C:\\Users\\dafra\\source\\repos\\VisualStudioCode\\push\\PtEngine\\PtEngine\\pt\\Core\\config.ptc");
+
     auto t1 = std::thread([]() {
         for (int i = 0; i < 3; i++) {
             PT_LOG_ERROR("i = {}", i);
@@ -28,10 +29,10 @@ int main() {
     });
     auto t5 = std::thread([]() {
         for (int i = 0; i < 3; i++) {
-            PT_ASSERT(i == 0);
+           PT_ASSERT(i == 0);
         }
     });
-
+    
     t1.join();
     t2.join();
     t3.join();
