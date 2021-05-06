@@ -93,10 +93,11 @@ void ConfigParser::m_parseLexemes() {
     Bracket optErrorInfo;
     bool bracketResult = m_checkBracket(optErrorInfo);
         if (!bracketResult) {
-            PT_LOG_ERROR("Incorrect symbol '{}' configuration file '{}' in line '{}'", optErrorInfo.value, m_pathToFile, optErrorInfo.line);
+			PT_LOG_ERROR("Incorrect symbol configuration file '{}' in line '{}'", m_pathToFile, optErrorInfo.line);
             m_tokens.clear();
         }
         else {
+			int lineWithUnknownToken = 1;
             std::string temp;
             int offset = 0;
             Token tempToken;
@@ -173,6 +174,9 @@ void ConfigParser::m_parseLexemes() {
                 }
 
                 else if (strchr(":=,[]{}", (*inputIterator)) || (*inputIterator) == '\n' || (*inputIterator) == '\n\r') {
+					if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r'){
+						++lineWithUnknownToken;
+					}
                     m_tokens.push_back({ tempToken.lexem = std::to_string(*inputIterator), tempToken.type = TokenType::LOOKAHEAD });
                     ++inputIterator;
                 }
@@ -180,7 +184,7 @@ void ConfigParser::m_parseLexemes() {
                 else {
                     temp += (*inputIterator);
                     m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::UNKNOWN });
-                    PT_LOG_ERROR("Unknown character '{}' found in the configuration file", temp);
+                    PT_LOG_ERROR("Unknown character '{}' found in the configuration file '{}' in line '{}'", temp, m_pathToFile, lineWithUnknownToken);
                     m_tokens.clear();
                     return;
                 }
