@@ -4,7 +4,7 @@
 
 namespace pt {
 
-enum class TokenType { TYPE, IDENTIFIER, LOOKAHEAD, VALUE, VALUE_STRING, ESCAPE, UNKNOWN };
+enum class TokenType { TYPE, IDENTIFIER, LOOKAHEAD, VALUE, VALUE_STRING, ESCAPE, UNKNOWN, END };
 
 class ConfigParser {
 public:
@@ -21,8 +21,10 @@ private:
     std::string m_input;
     std::string m_pathToFile;
     std::vector<Token> m_tokens;
+	bool m_isTokensEnded = false;
+
     bool m_checkBracket(Bracket &optErrorInfo);
-    Token& get_token(std::vector<Token>& tokens);
+    Token m_getToken(int offset);
     void m_parseLexemes();
 };
 

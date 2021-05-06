@@ -20,8 +20,7 @@ ConfigParser::ConfigParser(std::string pathToFile) : m_pathToFile { pathToFile }
     fclose(file);
     if (!m_input.empty()) {
         m_parseLexemes();
-		m_tokens;
-	}
+    }
 }
 
 bool ConfigParser::m_checkBracket(Bracket &optErrorInfo) {
@@ -161,9 +160,9 @@ void ConfigParser::m_parseLexemes() {
                 }
 
                 else if (isdigit(*inputIterator) || (*inputIterator) == '-') {
-					if ((*inputIterator) == '-') {
-                        temp += (*inputIterator);
-                        ++inputIterator;
+                        if ((*inputIterator) == '-') {
+                            temp += (*inputIterator);
+                            ++inputIterator;
                     }
                     while (isdigit(*inputIterator) || (*inputIterator) == '.') {
                         temp += (*inputIterator);
@@ -188,13 +187,28 @@ void ConfigParser::m_parseLexemes() {
             }
         }
     }
-			
-ConfigParser::Token& ConfigParser::get_token(std::vector<Token>& tokens) {
-	static Token temp = tokens.back();
-	//tokens.pop();
-	return temp;
-}
+
+ConfigParser::Token ConfigParser::m_getToken(int offset) {
+        if (!m_tokens.empty()) {
+            static int s_currentIndex = 0;
+            if (s_currentIndex >= m_tokens.size()) {
+                m_isTokensEnded = true;
+                Token temp;
+                temp.type = TokenType::END;
+                temp.lexem = "";
+                return temp;
+            }
+            else {
+                if (offset) {
+                    offset += 1;
+                }
+                Token temp = m_tokens.at(s_currentIndex - offset);
+                if (!offset) {
+                    ++s_currentIndex;
+                }
+                return temp;
+            }
+        }
+    }
 
 }
-
-
