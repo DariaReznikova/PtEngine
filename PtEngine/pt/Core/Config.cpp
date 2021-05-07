@@ -20,6 +20,7 @@ ConfigParser::ConfigParser(std::string pathToFile) : m_pathToFile { pathToFile }
     fclose(file);
     if (!m_input.empty()) {
         m_parseLexemes();
+		m_tokens;
     }
 }
 
@@ -118,7 +119,8 @@ void ConfigParser::m_parseLexemes() {
                         || temp == "i8" || temp == "i16" || temp == "i32" || temp == "i64"
                         || temp == "u8" || temp == "u16" || temp == "u32" || temp == "u64"
                         || temp == "f32" || temp == "f64") {
-                        m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::TYPE });
+                        m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::TYPE });
+						tempToken.lexem.clear();
                         temp.clear();
                         continue;
                     }
@@ -131,7 +133,8 @@ void ConfigParser::m_parseLexemes() {
                     ++inputIterator;
                     while ((*inputIterator) != '"') {
                         if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r' || (*inputIterator) == '\'') {
-                            m_tokens.push_back({ tempToken.lexem = std::to_string(*inputIterator), tempToken.type = TokenType::ESCAPE });
+                            m_tokens.push_back({ tempToken.lexem += (*inputIterator), tempToken.type = TokenType::ESCAPE });
+							tempToken.lexem.clear();
                         }
                         else {
                             temp += (*inputIterator);
@@ -139,7 +142,8 @@ void ConfigParser::m_parseLexemes() {
                         }
                     }
                     ++inputIterator;
-                    m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::VALUE_STRING });
+                    m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::VALUE_STRING });
+					tempToken.lexem.clear();
                     temp.clear();
                 }
 
@@ -149,12 +153,14 @@ void ConfigParser::m_parseLexemes() {
                         ++inputIterator;
                     }
                     if (temp == "false" || temp == "true") {
-                        m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::VALUE });
+                        m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::VALUE });
+						tempToken.lexem.clear();
                         temp.clear();
                         continue;
                     }
                     else {
-                        m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::IDENTIFIER });
+                        m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::IDENTIFIER });
+						tempToken.lexem.clear();
                         temp.clear();
                         continue;
                     }
@@ -169,7 +175,8 @@ void ConfigParser::m_parseLexemes() {
                         temp += (*inputIterator);
                         ++inputIterator;
                     }
-                    m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::VALUE });
+                    m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::VALUE });
+					tempToken.lexem.clear();
                     temp.clear();
                 }
 
@@ -177,14 +184,16 @@ void ConfigParser::m_parseLexemes() {
 					if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r'){
 						++lineWithUnknownToken;
 					}
-                    m_tokens.push_back({ tempToken.lexem = std::to_string(*inputIterator), tempToken.type = TokenType::LOOKAHEAD });
+                    m_tokens.push_back({ tempToken.lexem += (*inputIterator), tempToken.type = TokenType::LOOKAHEAD });
+					tempToken.lexem.clear();
                     ++inputIterator;
                 }
 
                 else {
                     temp += (*inputIterator);
-                    m_tokens.push_back({ tempToken.lexem = temp, tempToken.type = TokenType::UNKNOWN });
+                    m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::UNKNOWN });
                     PT_LOG_ERROR("Unknown character '{}' found in the configuration file '{}' in line '{}'", temp, m_pathToFile, lineWithUnknownToken);
+					tempToken.lexem.clear();
                     m_tokens.clear();
                     return;
                 }
