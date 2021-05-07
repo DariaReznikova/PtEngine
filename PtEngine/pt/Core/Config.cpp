@@ -1,7 +1,6 @@
 #include "Logger.hpp"
 #include "Config.hpp"
 #include <string>
-#include <string>
 #include <vector>
 #include <stack>
 
@@ -20,7 +19,6 @@ ConfigParser::ConfigParser(std::string pathToFile) : m_pathToFile { pathToFile }
     fclose(file);
     if (!m_input.empty()) {
         m_parseLexemes();
-        m_tokens;
     }
     else{
         PT_LOG_ERROR("Configuration file '{}' is empty", m_pathToFile);
@@ -107,8 +105,10 @@ void ConfigParser::m_parseLexemes() {
             Token tempToken;
             auto inputIterator = m_input.begin();
             while (inputIterator != (m_input.end() - 1)) {
-                while ((*inputIterator) == ' ' || (*inputIterator) == '\t' || (*inputIterator) == '\r' || (*inputIterator) == '\v' || (*inputIterator) == '\f'
-                    && inputIterator != (m_input.end() - 1)) {
+                if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r'){
+                        ++lineWithUnknownToken;
+                    }
+                while (isspace(*inputIterator) && inputIterator != (m_input.end() - 1)) {
                     ++inputIterator;
                 }
                 if (isalpha(*inputIterator)) {
@@ -193,10 +193,7 @@ void ConfigParser::m_parseLexemes() {
                     temp.clear();
                 }
 
-                else if (strchr(":=,[]{}", (*inputIterator)) || (*inputIterator) == '\n' || (*inputIterator) == '\n\r') {
-                    if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r'){
-                        ++lineWithUnknownToken;
-                    }
+                else if (strchr(":=,[]{}", (*inputIterator))) {
                     m_tokens.push_back({ tempToken.lexem += (*inputIterator), tempToken.type = TokenType::LOOKAHEAD });
                     tempToken.lexem.clear();
                     ++inputIterator;
@@ -239,11 +236,5 @@ ConfigParser::Token ConfigParser::m_getToken(int offset) {
             PT_LOG_ERROR("Configuration file '{}' is empty", m_pathToFile);
         }
     }
-    
 
-
-
-
-
-    
 }
