@@ -22,6 +22,9 @@ ConfigParser::ConfigParser(std::string pathToFile) : m_pathToFile { pathToFile }
         m_parseLexemes();
 		m_tokens;
     }
+	else{
+		PT_LOG_ERROR("Configuration file '{}' is empty", m_pathToFile);
+	}
 }
 
 bool ConfigParser::m_checkBracket(Bracket &optErrorInfo) {
@@ -204,24 +207,26 @@ void ConfigParser::m_parseLexemes() {
 ConfigParser::Token ConfigParser::m_getToken(int offset) {
         if (!m_tokens.empty()) {
             static int s_currentIndex = 0;
+            if (offset) {
+                offset += 1;
+                Token temp = m_tokens.at(s_currentIndex - offset);
+                return temp;
+            }     
             if (s_currentIndex >= m_tokens.size()) {
                 m_isTokensEnded = true;
                 Token temp;
                 temp.type = TokenType::END;
                 temp.lexem = "";
                 return temp;
-            }
+            }      
             else {
-                if (offset) {
-                    offset += 1;
-                }
-                Token temp = m_tokens.at(s_currentIndex - offset);
-                if (!offset) {
-                    ++s_currentIndex;
-                }
+                Token temp = m_tokens.at(s_currentIndex);
+                ++s_currentIndex;
                 return temp;
-            }
+            }       
+        }
+        else {
+            PT_LOG_ERROR("Configuration file '{}' is empty", m_pathToFile);
         }
     }
-
 }
