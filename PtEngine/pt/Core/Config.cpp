@@ -20,11 +20,11 @@ ConfigParser::ConfigParser(std::string pathToFile) : m_pathToFile { pathToFile }
     fclose(file);
     if (!m_input.empty()) {
         m_parseLexemes();
-		m_tokens;
+        m_tokens;
     }
-	else{
-		PT_LOG_ERROR("Configuration file '{}' is empty", m_pathToFile);
-	}
+    else{
+        PT_LOG_ERROR("Configuration file '{}' is empty", m_pathToFile);
+    }
 }
 
 bool ConfigParser::m_checkBracket(Bracket &optErrorInfo) {
@@ -97,11 +97,11 @@ void ConfigParser::m_parseLexemes() {
     Bracket optErrorInfo;
     bool bracketResult = m_checkBracket(optErrorInfo);
         if (!bracketResult) {
-			PT_LOG_ERROR("Incorrect symbol configuration file '{}' in line '{}'", m_pathToFile, optErrorInfo.line);
+            PT_LOG_ERROR("Incorrect symbol configuration file '{}' in line '{}'", m_pathToFile, optErrorInfo.line);
             m_tokens.clear();
         }
         else {
-			int lineWithUnknownToken = 1;
+            int lineWithUnknownToken = 1;
             std::string temp;
             int offset = 0;
             Token tempToken;
@@ -123,7 +123,7 @@ void ConfigParser::m_parseLexemes() {
                         || temp == "u8" || temp == "u16" || temp == "u32" || temp == "u64"
                         || temp == "f32" || temp == "f64") {
                         m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::TYPE });
-						tempToken.lexem.clear();
+                        tempToken.lexem.clear();
                         temp.clear();
                         continue;
                     }
@@ -137,7 +137,7 @@ void ConfigParser::m_parseLexemes() {
                     while ((*inputIterator) != '"') {
                         if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r' || (*inputIterator) == '\'') {
                             m_tokens.push_back({ tempToken.lexem += (*inputIterator), tempToken.type = TokenType::ESCAPE });
-							tempToken.lexem.clear();
+                            tempToken.lexem.clear();
                         }
                         else {
                             temp += (*inputIterator);
@@ -146,7 +146,7 @@ void ConfigParser::m_parseLexemes() {
                     }
                     ++inputIterator;
                     m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::VALUE_STRING });
-					tempToken.lexem.clear();
+                    tempToken.lexem.clear();
                     temp.clear();
                 }
 
@@ -156,39 +156,49 @@ void ConfigParser::m_parseLexemes() {
                         ++inputIterator;
                     }
                     if (temp == "false" || temp == "true") {
-                        m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::VALUE });
-						tempToken.lexem.clear();
+                        m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::VALUE_BOOL });
+                        tempToken.lexem.clear();
                         temp.clear();
                         continue;
                     }
                     else {
                         m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::IDENTIFIER });
-						tempToken.lexem.clear();
+                        tempToken.lexem.clear();
                         temp.clear();
                         continue;
                     }
                 }
 
                 else if (isdigit(*inputIterator) || (*inputIterator) == '-') {
-                        if ((*inputIterator) == '-') {
-                            temp += (*inputIterator);
-                            ++inputIterator;
-                    }
-                    while (isdigit(*inputIterator) || (*inputIterator) == '.') {
+                    if ((*inputIterator) == '-') {
                         temp += (*inputIterator);
                         ++inputIterator;
                     }
-                    m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::VALUE });
-					tempToken.lexem.clear();
+                    bool isFloat = false;
+                    while (isdigit(*inputIterator) || (*inputIterator) == '.') {
+                        if ((*inputIterator) == '.') {
+                            isFloat = true;
+                        }
+                        temp += (*inputIterator);
+                        ++inputIterator;
+                    }
+                    if (isFloat) {
+                        m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::VALUE_FLOAT });
+                        tempToken.lexem.clear();
+                    }
+                    else {
+                        m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::VALUE_INTEGER });
+                        tempToken.lexem.clear();
+                    }
                     temp.clear();
                 }
 
                 else if (strchr(":=,[]{}", (*inputIterator)) || (*inputIterator) == '\n' || (*inputIterator) == '\n\r') {
-					if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r'){
-						++lineWithUnknownToken;
-					}
+                    if ((*inputIterator) == '\n' || (*inputIterator) == '\n\r'){
+                        ++lineWithUnknownToken;
+                    }
                     m_tokens.push_back({ tempToken.lexem += (*inputIterator), tempToken.type = TokenType::LOOKAHEAD });
-					tempToken.lexem.clear();
+                    tempToken.lexem.clear();
                     ++inputIterator;
                 }
 
@@ -196,7 +206,7 @@ void ConfigParser::m_parseLexemes() {
                     temp += (*inputIterator);
                     m_tokens.push_back({ tempToken.lexem += temp, tempToken.type = TokenType::UNKNOWN });
                     PT_LOG_ERROR("Unknown character '{}' found in the configuration file '{}' in line '{}'", temp, m_pathToFile, lineWithUnknownToken);
-					tempToken.lexem.clear();
+                    tempToken.lexem.clear();
                     m_tokens.clear();
                     return;
                 }
@@ -229,4 +239,11 @@ ConfigParser::Token ConfigParser::m_getToken(int offset) {
             PT_LOG_ERROR("Configuration file '{}' is empty", m_pathToFile);
         }
     }
+    
+
+
+
+
+
+    
 }
