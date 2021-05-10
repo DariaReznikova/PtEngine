@@ -6,7 +6,9 @@
 int main() {
     pt::Logger::get().initialize();
     pt::ConfigParser config("C:\\Users\\dafra\\source\\repos\\VisualStudioCode\\push\\PtEngine\\PtEngine\\pt\\Core\\config.ptc");
-
+   
+    int field0 = config.m_ast.mgetI8I16("field0");
+    PT_LOG_TRACE("Field0 = '{}'", field0);
     auto t1 = std::thread([]() {
         for (int i = 0; i < 3; i++) {
             PT_LOG_ERROR("i = {}", i);

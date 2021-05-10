@@ -1,5 +1,6 @@
-#include "Logger.hpp"
 #include "Config.hpp"
+#include "Logger.hpp"
+#include "Tree.hpp"
 #include <string>
 #include <vector>
 #include <stack>
@@ -9,7 +10,7 @@ namespace pt {
 ConfigParser::ConfigParser(std::string pathToFile) : m_pathToFile { pathToFile }{ 
     FILE* file;
     if (fopen_s(&file, m_pathToFile.c_str(), "r") != 0) {
-        PT_LOG_FATAL("Can't open configuration file '{}'", m_pathToFile);                     
+        PT_LOG_FATAL("Can't open in configuration file '{}'", m_pathToFile);                     
     }
     else {
         while (!feof(file)) {
@@ -19,12 +20,13 @@ ConfigParser::ConfigParser(std::string pathToFile) : m_pathToFile { pathToFile }
     fclose(file);
     if (!m_input.empty()) {
         m_parseLexemes();
+        m_tokens;
+        m_ast = m_table();
     }
     else{
         PT_LOG_ERROR("Configuration file '{}' is empty", m_pathToFile);
     }
 }
-
 bool ConfigParser::m_checkBracket(Bracket &optErrorInfo) {
     int lineWithError = 1;
     size_t offset = 0;
@@ -234,6 +236,212 @@ ConfigParser::Token ConfigParser::m_getToken(int offset) {
         }
         else {
             PT_LOG_ERROR("Configuration file '{}' is empty", m_pathToFile);
+        }
+    }
+
+    Tree ConfigParser::m_table() { 
+        Tree ast;
+        ast.m_addNode(NodesType::TABLE);
+        Token token = m_getToken();
+        while(!m_isTokensEnded) {
+            ast.m_addNode(NodesType::TABLEBODY);
+            m_tableBody(token, ast);
+            token = m_getToken(); 
+         } 
+        return ast;
+    }
+    
+    void ConfigParser::m_tableBody(Token token, Tree& ast) { 
+        Token next = token;
+        bool enter = false; // enter from recoursive
+        while(!m_isTokensEnded){
+        switch (next.type) {
+        case TokenType::LOOKAHEAD:
+            if (next.lexem == "{") {
+                next = m_getToken();
+                ast.m_addNode(NodesType::TABLEBODY);
+                m_tableBody(next, ast);
+                if (enter) { return; }
+            }
+            else if (next.lexem == "}") {
+                next = m_getToken();
+                if(next.lexem == ","){
+                    ast.m_ascent();
+                    m_tableBody(next, ast);
+                    if (enter) { return; }
+                }
+            }
+            else if(next.lexem == ","){
+                next = m_getToken();
+                m_tableBody(next, ast);
+                if (enter) { return; } 
+            }
+            /*else {
+                PT_LOG_FATAL("Can't parsing configuration file '{}' - syntactic error", m_pathToFile);
+            }*/
+        }
+        if (!m_isTokensEnded) {
+            tableItemFull checkTableItem;
+            ast.m_addNode(NodesType::TABLEITEM);
+            m_tableItem(token, ast, checkTableItem);
+            while (!checkTableItem.isHasIndifier || !checkTableItem.isHasType || !checkTableItem.isHasValue || !checkTableItem.isHasColon || !checkTableItem.isHasEqual) {
+                Token temp = m_getToken();
+                m_tableItem(temp, ast, checkTableItem);
+            }
+            ast.m_ascent();
+            ast.m_ascent();
+            next = m_getToken();
+            m_tableBody(next, ast);
+            if (enter) { return; }
+        }
+        }
+        enter = true;
+        return;
+    }
+
+    void ConfigParser::m_tableItem(Token token, Tree& ast, tableItemFull& checkTableItem) {
+        switch (token.type) {
+        case TokenType::IDENTIFIER:  
+            ast.m_addNode(NodesType::IDENTIFIER, token.lexem, false);
+            checkTableItem.isHasIndifier = true;
+            break;
+        case TokenType::LOOKAHEAD:
+            if (token.lexem == ":" && m_getToken(1).type == TokenType::IDENTIFIER) {
+                checkTableItem.isHasColon = true;
+            }
+            else if (token.lexem == "=" && m_getToken(1).type == TokenType::TYPE) {
+                checkTableItem.isHasEqual = true;
+            }
+            else {
+                PT_LOG_FATAL("Can't parsing configuration file '{}' - syntactic error", m_pathToFile);
+            }
+            break;
+        case TokenType::TYPE:
+            if (token.lexem == "table") {
+            ast.m_addNode(NodesType::TYPE, token.lexem, true);
+            checkTableItem.isHasType = true;
+            checkTableItem.isHasValue = true;
+            Token next = m_getToken();
+            if (next.lexem == "=" && m_getToken(1).type == TokenType::TYPE) {
+                checkTableItem.isHasEqual = true;
+                next = m_getToken();
+            }
+            else {
+                PT_LOG_FATAL("Can't parsing configuration file '{}' - syntactic error", m_pathToFile);
+            }
+            m_tableBody(next, ast);
+            break;
+            }
+            else {
+                ast.m_addNode(NodesType::TYPE, token.lexem, true);
+                checkTableItem.isHasType = true;
+                break;
+            }
+        case TokenType::VALUE_BOOL:
+        case TokenType::VALUE_STRING:
+        case TokenType::VALUE_INTEGER:
+        case TokenType::VALUE_FLOAT:
+            m_terminate(token, ast);
+            checkTableItem.isHasValue = true;
+            break;
+        default:
+            PT_LOG_FATAL("Can't parsing configuration file '{}' - syntactic error", m_pathToFile);
+        }
+    }
+    void ConfigParser::m_terminate(Token token, Tree& ast) {
+        Token type = m_getToken(2);
+        if (type.type == TokenType::TYPE) {
+            if (type.lexem == "bool" && token.type == TokenType::VALUE_BOOL) {
+                ast.m_addNode(NodesType::VALUE, token.lexem, true);
+            }
+            else if (type.lexem == "string" && token.type == TokenType::VALUE_STRING) {
+                ast.m_addNode(NodesType::VALUE, token.lexem, true);
+            }
+
+            else if (type.lexem == "i8" && token.type == TokenType::VALUE_INTEGER) {
+                long long value = atoi(token.lexem.c_str());
+                if (value < MINI8 || value > MAXI8) {
+                    PT_LOG_ERROR("Entity type '{}' can't contain value '{}'", type.lexem, value);
+                }
+                else {
+                    ast.m_addNode(NodesType::VALUE, token.lexem, true);
+                }
+            }
+            else if (type.lexem == "i16" && token.type == TokenType::VALUE_INTEGER) {
+                long long value = atoi(token.lexem.c_str());
+                if (value < MINI16 || value > MAXI16) {
+                    PT_LOG_ERROR("Entity type '{}' can't contain value '{}'", type.lexem, value);
+                }
+                else {
+                    ast.m_addNode(NodesType::VALUE, token.lexem, true);
+                }
+            }
+            else if (type.lexem == "i32" && token.type == TokenType::VALUE_INTEGER) {
+                long long value = atol(token.lexem.c_str());
+                if (value < MINI32 || value > MAXI32) {
+                    PT_LOG_ERROR("Entity type '{}' can't contain value '{}'", type.lexem, value);
+                }
+                else {
+                    ast.m_addNode(NodesType::VALUE, token.lexem, true);
+                }
+            }
+            else if (type.lexem == "i64" && token.type == TokenType::VALUE_INTEGER) {
+                long long value = atoll(token.lexem.c_str());
+                if (value < MINI64 || value > MAXI64) {
+                    PT_LOG_ERROR("Entity type '{}' can't contain value '{}'", type.lexem, value);
+                }
+                else {
+                    ast.m_addNode(NodesType::VALUE, token.lexem, true);
+                }
+            }
+            else if (type.lexem == "u8" && token.type == TokenType::VALUE_INTEGER) {
+                long long value = atoi(token.lexem.c_str());
+                if (value < MINU || value > MAXU8) {
+                    PT_LOG_ERROR("Entity type '{}' can't contain value '{}'", type.lexem, value);
+                }
+                else {
+                    ast.m_addNode(NodesType::VALUE, token.lexem, true);
+                }
+            }
+            else if (type.lexem == "u16" && token.type == TokenType::VALUE_INTEGER) {
+                long long value = atoi(token.lexem.c_str());
+                if (value < MINU || value > MAXU16) {
+                    PT_LOG_ERROR("Entity type '{}' can't contain value '{}'", type.lexem, value);
+                }
+                else {
+                    ast.m_addNode(NodesType::VALUE, token.lexem, true);
+                }
+            }
+            else if (type.lexem == "u32" && token.type == TokenType::VALUE_INTEGER) {
+                long long value = atol(token.lexem.c_str());
+                if (value < MINU || value > MAXU32) {
+                    PT_LOG_ERROR("Entity type '{}' can't contain value '{}'", type.lexem, value);
+                }
+                else {
+                    ast.m_addNode(NodesType::VALUE, token.lexem, true);
+                }
+            }
+            else if (type.lexem == "u64" && token.type == TokenType::VALUE_INTEGER) {
+                long long value = atoll(token.lexem.c_str());
+                if (value < MINU || value > MAXU64) {
+                    PT_LOG_ERROR("Entity type '{}' can't contain value '{}'", type.lexem, value);
+                }
+                else {
+                    ast.m_addNode(NodesType::VALUE, token.lexem, true);
+                }
+            }
+            else if (type.lexem == "f32" && token.type == TokenType::VALUE_FLOAT || token.type == TokenType::VALUE_INTEGER) {
+                float f32 = atof(token.lexem.c_str());
+                ast.m_addNode(NodesType::VALUE, token.lexem, true);
+
+            }
+            else if (type.lexem == "f64" && token.type == TokenType::VALUE_FLOAT || token.type == TokenType::VALUE_INTEGER) {
+                double f64 = atof(token.lexem.c_str());
+                ast.m_addNode(NodesType::VALUE, token.lexem, true);
+            }
+            else {
+                PT_LOG_FATAL("Can't parsing configuration file '{}'", m_pathToFile);
+            }
         }
     }
 
